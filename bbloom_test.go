@@ -11,7 +11,7 @@ import (
 var (
 	wordlist1 [][]byte
 	n         = 1 << 16
-	bf        Bloom
+	bf        *Bloom
 )
 
 func TestMain(m *testing.M) {

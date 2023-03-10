@@ -61,7 +61,7 @@ func calcSizeByWrongPositives(numEntries, wrongs float64) (uint64, uint64) {
 
 // New
 // returns a new bloomfilter
-func New(params ...float64) (bloomfilter Bloom) {
+func New(params ...float64) (bloomfilter *Bloom) {
 	var entries, locs uint64
 	if len(params) == 2 {
 		if params[1] < 1 {
@@ -73,7 +73,7 @@ func New(params ...float64) (bloomfilter Bloom) {
 		log.Fatal("usage: New(float64(number_of_entries), float64(number_of_hashlocations)) i.e. New(float64(1000), float64(3)) or New(float64(number_of_entries), float64(number_of_hashlocations)) i.e. New(float64(1000), float64(0.03))")
 	}
 	size, exponent := getSize(uint64(entries))
-	bloomfilter = Bloom{
+	bloomfilter = &Bloom{
 		Mtx:     &sync.Mutex{},
 		sizeExp: exponent,
 		size:    size - 1,
@@ -87,7 +87,7 @@ func New(params ...float64) (bloomfilter Bloom) {
 // NewWithBoolset
 // takes a []byte slice and number of locs per entry
 // returns the bloomfilter with a bitset populated according to the input []byte
-func NewWithBoolset(bs *[]byte, locs uint64) (bloomfilter Bloom) {
+func NewWithBoolset(bs *[]byte, locs uint64) (bloomfilter *Bloom) {
 	bloomfilter = New(float64(len(*bs)<<3), float64(locs))
 	for i, b := range *bs {
 		*(*uint8)(unsafe.Pointer(uintptr(unsafe.Pointer(&bloomfilter.bitset[0])) + uintptr(i))) = b
@@ -105,7 +105,7 @@ type bloomJSONImExport struct {
 // JSONUnmarshal
 // takes JSON-Object (type bloomJSONImExport) as []bytes
 // returns Bloom object
-func JSONUnmarshal(dbData []byte) Bloom {
+func JSONUnmarshal(dbData []byte) *Bloom {
 	bloomImEx := bloomJSONImExport{}
 	json.Unmarshal(dbData, &bloomImEx)
 	buf := bytes.NewBuffer(bloomImEx.FilterSet)
@@ -114,7 +114,6 @@ func JSONUnmarshal(dbData []byte) Bloom {
 	return bf
 }
 
-//
 // Bloom filter
 type Bloom struct {
 	Mtx     *sync.Mutex
@@ -164,7 +163,7 @@ func (bl *Bloom) AddTS(entry []byte) {
 // Has
 // check if bit(s) for entry is/are set
 // returns true if the entry was added to the Bloom Filter
-func (bl Bloom) Has(entry []byte) bool {
+func (bl *Bloom) Has(entry []byte) bool {
 	l, h := bl.sipHash(entry)
 	res := true
 	for i := uint64(0); i < bl.setLocs; i++ {
@@ -193,7 +192,7 @@ func (bl *Bloom) HasTS(entry []byte) bool {
 // Only Add entry if it's not present in the bloomfilter
 // returns true if entry was added
 // returns false if entry was allready registered in the bloomfilter
-func (bl Bloom) AddIfNotHas(entry []byte) (added bool) {
+func (bl *Bloom) AddIfNotHas(entry []byte) (added bool) {
 	if bl.Has(entry) {
 		return added
 	}
@@ -245,7 +244,7 @@ func (bl *Bloom) isSet(idx uint64) bool {
 
 // JSONMarshal
 // returns JSON-object (type bloomJSONImExport) as []byte
-func (bl Bloom) JSONMarshal() []byte {
+func (bl *Bloom) JSONMarshal() []byte {
 	bloomImEx := bloomJSONImExport{}
 	bloomImEx.SetLocs = uint64(bl.setLocs)
 	bloomImEx.FilterSet = make([]byte, len(bl.bitset)<<3)
