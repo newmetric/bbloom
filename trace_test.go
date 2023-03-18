@@ -21,4 +21,5 @@ func TestBloomTrace(t *testing.T) {
 	trace.SyncTo(anotherFilter)
 
 	assert.Equal(t, uint64(0xe), anotherFilter.ElemNum, "anotherFilter should have 14 elements after sync")
+	assert.Equal(t, filter.JSONMarshal(), anotherFilter.JSONMarshal())
 }
