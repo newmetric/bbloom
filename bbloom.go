@@ -138,14 +138,14 @@ type Bloom struct {
 // 	return l, h
 // }
 
-// Update: found sipHash of Jean-Philippe Aumasson & Daniel J. Bernstein to be even faster than absdbm()
+// Update: found SipHash of Jean-Philippe Aumasson & Daniel J. Bernstein to be even faster than absdbm()
 // https://131002.net/siphash/
 // siphash was implemented for Go by Dmitry Chestnykh https://github.com/dchest/siphash
 
 // Add
 // set the bit(s) for entry; Adds an entry to the Bloom filter
 func (bl *Bloom) Add(entry []byte) {
-	l, h := bl.sipHash(entry)
+	l, h := SipHash(entry, bl.shift)
 	for i := uint64(0); i < bl.setLocs; i++ {
 		bl.set((h + i*l) & bl.size)
 		bl.ElemNum++
@@ -164,7 +164,7 @@ func (bl *Bloom) AddTS(entry []byte) {
 // check if bit(s) for entry is/are set
 // returns true if the entry was added to the Bloom Filter
 func (bl *Bloom) Has(entry []byte) bool {
-	l, h := bl.sipHash(entry)
+	l, h := SipHash(entry, bl.shift)
 	res := true
 	for i := uint64(0); i < bl.setLocs; i++ {
 		res = res && bl.isSet((h+i*l)&bl.size)

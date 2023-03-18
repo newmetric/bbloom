@@ -1,40 +1,63 @@
 package bbloom
 
-import "sync"
+import (
+	"sync"
+)
 
 // BloomTrace -- BloomTrace related implementations
 type BloomTrace struct {
-	records []uint64
-	length  uint64
-	mtx     *sync.Mutex
+	records   []uint64
+	bfSize    uint64
+	bfShift   uint64
+	bfSetLocs uint64
+	mtx       *sync.Mutex
 }
 
-func NewTrace() *BloomTrace {
-	return &BloomTrace{records: make([]uint64, 0), mtx: new(sync.Mutex)}
+func (bl *Bloom) DeriveTrace() *BloomTrace {
+	return &BloomTrace{
+		records:   make([]uint64, 0),
+		bfSize:    bl.size,
+		bfShift:   bl.shift,
+		bfSetLocs: bl.setLocs,
+		mtx:       new(sync.Mutex),
+	}
 }
 
-func NewTraceFromRecords(records []uint64) *BloomTrace {
-	return &BloomTrace{records: records, mtx: new(sync.Mutex)}
+func (bl *Bloom) setFromTrace(trace uint64) {
+	bl.set(trace)
+	bl.ElemNum++
 }
 
+// Length returns the number of entries in bloomTrace
+// note that entries are not the number of added entries,
+// but rather the number of trace set
 func (bt *BloomTrace) Length() uint64 {
-	return bt.length
+	return uint64(len(bt.records))
 }
 
-func (bt *BloomTrace) Add(trace uint64) {
-	bt.records = append(bt.records, trace)
-	bt.length++
+// Add adds entry to bloomTrace (akin to add() in original bloom filter)
+func (bt *BloomTrace) Add(entry []byte) {
+	l, h := SipHash(entry, bt.bfShift)
+	for i := uint64(0); i < bt.bfSetLocs; i++ {
+		bt.Set((h + i*l) & bt.bfSize)
+	}
 }
 
-func (bt *BloomTrace) AddTS(trace uint64) {
+// AddTS is a thread safe version of Add
+func (bt *BloomTrace) AddTS(entry []byte) {
 	bt.mtx.Lock()
 	defer bt.mtx.Unlock()
-	bt.Add(trace)
+	bt.Add(entry)
+}
+
+// Set sets bitset from bloomTrace (akin to set() in original bloom filter)
+func (bt *BloomTrace) Set(trace uint64) {
+	bt.records = append(bt.records, trace)
 }
 
 func (bt *BloomTrace) SyncTo(bloom *Bloom) {
 	for _, trace := range bt.records {
-		bloom.Sync(trace)
+		bloom.setFromTrace(trace)
 	}
 }
 
@@ -42,24 +65,4 @@ func (bt *BloomTrace) SyncToTS(bloom *Bloom) {
 	bloom.Mtx.Lock()
 	defer bloom.Mtx.Unlock()
 	bt.SyncTo(bloom)
-}
-
-// Sync
-// Sync sets bitset from bloomTrace. This function is intended to be used
-// when syncing bloom filters incrementally over the wire
-func (bl *Bloom) Sync(record uint64) {
-	bl.set(record)
-	bl.ElemNum++
-}
-
-func (bl *Bloom) AddWithTrace(entry []byte, trace *BloomTrace) {
-	l, h := bl.sipHash(entry)
-
-	for i := uint64(0); i < bl.setLocs; i++ {
-		x := (h + i*l) & bl.size
-		bl.set(x)
-
-		trace.Add(x)
-		bl.ElemNum++
-	}
 }
