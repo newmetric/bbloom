@@ -50,6 +50,10 @@ func (bt *BloomTrace) AddTS(entry []byte) {
 	bt.Add(entry)
 }
 
+func (bt *BloomTrace) Traces() []uint64 {
+	return bt.records
+}
+
 // Set sets bitset from bloomTrace (akin to set() in original bloom filter)
 func (bt *BloomTrace) Set(trace uint64) {
 	bt.records = append(bt.records, trace)
